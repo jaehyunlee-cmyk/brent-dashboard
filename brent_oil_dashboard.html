@@ -108,7 +108,7 @@
   </div>
   <div class="header-right">
     <span class="last-update" id="lastUpdate">—</span>
-    <span class="source-tag">출처: EIA (미국 에너지정보청)</span>
+    <span class="source-tag">출처: Yahoo Finance (브렌트유 선물 BZ=F)</span>
     <button class="btn" onclick="loadData()">↻ 새로고침</button>
   </div>
 </div>
@@ -215,34 +215,39 @@
     </table>
   </div>
 
-  <div class="footer">Aurora World 생산운영팀 · 데이터: U.S. Energy Information Administration (EIA) · 시나리오는 참고용 전망이며 실제와 다를 수 있습니다.</div>
+  <div class="footer">Aurora World 생산운영팀 · 데이터: Yahoo Finance · 브렌트유 선물(BZ=F) 기준 · 15분 지연 · 시나리오는 참고용 전망이며 실제와 다를 수 있습니다.</div>
 </div>
 
 <script>
-const API_KEY = 'c8jNAloqAYOql8eZU7SmRcvJ7br5JKOwwTxdl0gY';
 let allData = [], chart = null, currentMonths = 3;
 
 async function loadData() {
-  setStatus('loading', 'EIA 데이터 불러오는 중...');
+  setStatus('loading', '브렌트유 데이터 불러오는 중...');
   document.getElementById('overlay').style.display = 'flex';
   try {
-    const end = new Date(), start = new Date();
-    start.setFullYear(start.getFullYear() - 1);
-    const fmt = d => d.toISOString().slice(0,10);
-    const url = `https://api.eia.gov/v2/petroleum/pri/spt/data/?api_key=${API_KEY}&frequency=daily&data[0]=value&facets[product][]=EPCBRENT&sort[0][column]=period&sort[0][direction]=asc&start=${fmt(start)}&end=${fmt(end)}&length=400`;
-    const res = await fetch(url);
+    // Yahoo Finance API - 브렌트유 선물 (BZ=F), 1년치 일별 데이터
+    const url = 'https://query1.finance.yahoo.com/v8/finance/chart/BZ%3DF?interval=1d&range=1y&corsDomain=finance.yahoo.com';
+    const res = await fetch(url, {headers: {'User-Agent': 'Mozilla/5.0'}});
     const json = await res.json();
-    const rows = json?.response?.data;
-    if (!rows || !rows.length) throw new Error('데이터 없음');
-    allData = rows.filter(r => r.value != null).map(r => ({date: r.period, price: parseFloat(r.value)})).sort((a,b) => a.date.localeCompare(b.date));
-    setStatus('ok', '실시간 EIA 데이터 · ' + allData.length + '개 데이터 포인트');
+    const result = json?.chart?.result?.[0];
+    if (!result) throw new Error('데이터 없음');
+    const timestamps = result.timestamp;
+    const closes = result.indicators?.quote?.[0]?.close;
+    if (!timestamps || !closes) throw new Error('데이터 파싱 오류');
+    allData = timestamps.map((ts, i) => ({
+      date: new Date(ts * 1000).toISOString().slice(0,10),
+      price: closes[i] ? parseFloat(closes[i].toFixed(2)) : null
+    })).filter(d => d.price !== null).sort((a,b) => a.date.localeCompare(b.date));
+    if (!allData.length) throw new Error('유효한 데이터 없음');
+    const latestDate = allData[allData.length-1].date;
+    setStatus('ok', 'Yahoo Finance 실시간 데이터 · ' + allData.length + '개 데이터 포인트');
     document.getElementById('lastUpdate').textContent = '최종 업데이트: ' + new Date().toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
-    document.getElementById('dataRange').textContent = 'EIA 최신 데이터: ' + allData[allData.length-1].date;
+    document.getElementById('dataRange').textContent = '최신 데이터: ' + latestDate;
     initDateInputs();
     renderChart(getFilteredData(currentMonths));
     fetchFx();
   } catch(e) {
-    setStatus('error', '오류: ' + e.message);
+    setStatus('error', '오류: ' + e.message + ' — 샘플 데이터로 표시');
     allData = generateDemo();
     initDateInputs();
     renderChart(getFilteredData(currentMonths));
