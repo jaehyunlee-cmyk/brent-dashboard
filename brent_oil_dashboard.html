@@ -237,7 +237,7 @@ async function loadData() {
     allData = rows.filter(r => r.value != null).map(r => ({date: r.period, price: parseFloat(r.value)})).sort((a,b) => a.date.localeCompare(b.date));
     setStatus('ok', '실시간 EIA 데이터 · ' + allData.length + '개 데이터 포인트');
     document.getElementById('lastUpdate').textContent = '최종 업데이트: ' + new Date().toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
-    document.getElementById('dataRange').textContent = allData[0].date + ' ~ ' + allData[allData.length-1].date;
+    document.getElementById('dataRange').textContent = 'EIA 최신 데이터: ' + allData[allData.length-1].date;
     initDateInputs();
     renderChart(getFilteredData(currentMonths));
     fetchFx();
@@ -270,8 +270,8 @@ function generateDemo() {
 }
 
 function initDateInputs() {
-  const last = allData[allData.length-1].date;
-  const from = new Date(last); from.setMonth(from.getMonth()-3);
+  const last = allData[allData.length-1].date;  // Q3: always use latest API data date
+  const from = new Date(last); from.setMonth(from.getMonth()-currentMonths);
   document.getElementById('dateTo').value = last;
   document.getElementById('dateFrom').value = from.toISOString().slice(0,10);
 }
